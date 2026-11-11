@@ -22,7 +22,7 @@ URL = 'https://github.com/SciresM/hactool.git'
 COMMIT = '1d64a83450e025622f3468c28fc4164dad2c5ef6'
 PATCHES = [ROOT / 'tools' / 'hactool' / n for n in ('portable.patch', 'unicode.patch', 'mbedtls-asm-clobbers.patch')]
 WIN = os.name == 'nt'
-MSYS_BASH = Path(r'C:\msys64\usr\bin\bash.exe')
+MSYS_BASH = Path(r'B:\msys64\usr\bin\bash.exe')
 EXE = 'hactool.exe' if WIN else 'hactool'
 CONFIG_MK = ('CC = gcc\nEXEEXT = .exe\nCFLAGS = -O2 -Wall -Wextra -pedantic -std=gnu11\n'
              'LDFLAGS = -lmbedtls -lmbedx509 -lmbedcrypto -static\n') if WIN else \
