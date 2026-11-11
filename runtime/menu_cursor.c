@@ -23,10 +23,10 @@
 //
 // The same read of the open screens tells input.c when a dialogue box is on screen (menu_cursor_dialogue), where the
 // left mouse button presses B (it advances the text and skips its scroll) and the right one A, instead of their
-// bindings (Y by default, which opens the dialogue log, and ZL). TOTK_DIALOGUE_CLICK (live, default 0: one key per
-// controller button) switches that on its own: it does not need the pointer.
+// bindings (Y by default, which opens the dialogue log, and ZL). TOTK_DIALOGUE_CLICK (live, default 1 in this fork;
+// upstream proposes 0) switches that on its own: it does not need the pointer.
 //
-// With TOTK_MAP_CLICK=1 (live, default 0: one key per controller button) input.c makes the left mouse button A on the
+// With TOTK_MAP_CLICK=1 (live, default 1 in this fork; upstream proposes 0) input.c makes the left mouse button A on the
 // map (menu_cursor_map), so a click acts at the map's cursor. The map is found only while TOTK_MENU_CURSOR is on.
 #include <math.h>
 #include <stdint.h>
