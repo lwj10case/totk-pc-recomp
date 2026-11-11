@@ -348,12 +348,13 @@
 # right click is B. On the map the mouse moves the map's cursor and the scroll wheel zooms. 0 leaves the menus and
 # the map to the keys and the pad. Changes while the game runs.
 # menu_cursor = 1
-# The mouse buttons in dialogue, 1.4.3 only: while a dialogue box is open left click presses B (it continues the text
-# and skips its scroll) and right click presses A, instead of their bindings (Y by default, which opens the dialogue
-# log, and ZL). Dialogue choices keep the pointer, where left click picks. Works with menu_cursor = 0 too. The clicks
-# stay B and A for half a second after a box closes, as the game closes the box between two lines of a conversation.
-# 0 leaves both buttons on their bindings there. Changes while the game runs.
-# dialogue_click = 1
+# The mouse buttons in dialogue, 1.4.3 only. 1: while a dialogue box is open left click presses B (it continues the
+# text and skips its scroll) and right click presses A, instead of their bindings (Y by default, which opens the
+# dialogue log, and ZL). Dialogue choices keep the pointer, where left click picks. Works with menu_cursor = 0 too. The
+# clicks stay B and A for half a second after a box closes, as the game closes the box between two lines of a
+# conversation. 0 (the default) leaves both buttons on their bindings there, one key per controller button. Changes
+# while the game runs.
+# dialogue_click = 0
 # The left mouse button on the Purah Pad's map, 1.4.3 only: it presses A at the map's cursor instead of the button it
 # is bound to (Y by default). Needs menu_cursor = 1, which finds the map. 0 leaves the left button on its binding
 # there. Changes while the game runs.
