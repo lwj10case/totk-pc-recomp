@@ -25,6 +25,9 @@
 // left mouse button presses B (it advances the text and skips its scroll) and the right one A, instead of their
 // bindings (Y by default, which opens the dialogue log, and ZL). TOTK_DIALOGUE_CLICK (live, default 1) switches that
 // on its own: it does not need the pointer.
+//
+// On the map input.c makes the left mouse button A (menu_cursor_map; TOTK_MAP_CLICK, live, default 1), so a click
+// acts at the map's cursor. The map is found only while TOTK_MENU_CURSOR is on.
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>

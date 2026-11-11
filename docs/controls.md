@@ -65,7 +65,7 @@ At a game resolution of another shape than 16:9 the game loads `romfs-patches-xb
 
 | Switch | Prompt |
 |---|---|
-| A, B, X, Y | E, Shift, Space, left click |
+| A, B, X, Y | E, Shift, Space, left click (T in text prompts) |
 | L, R, ZL, ZR | Q, R, right click, F |
 | Plus, Minus | Tab, M |
 | D-pad | 1 (left), 2 (up), 3 (right), 4 (down), as a cross or the keys of the directions meant |
@@ -74,7 +74,8 @@ At a game resolution of another shape than 16:9 the game loads `romfs-patches-xb
 
 - The glyphs keep the width of the game's own, so the right-aligned guides do not run into their text. A key is a rounded square with its label cut out in the game's own text fonts (Shift: an arrow over its name); a mouse button is a mouse with that button filled and the others hollow.
 - The button guide in play draws every button from images of the Common archive (`Nt_KeyTexA/B/X/Y/L/ZL_00`, `Nt_KeyTexLSt_00` and `_01`, the stick tilted and pressed): all of them are painted with the same icons. The letters of the action prompt's diamond are one character of the Normal font each: E, an arrow for Shift, a bar for Space, L and R for the mouse buttons.
-- Like the Xbox prompts they follow the defaults and not the bindings. `--binds <totk.ini>` draws the first key of each `bind_` line of that file instead, for a folder made by hand.
+- Y has two keys, the left mouse button and T. The button guide in play and the action prompt show the left button, which attacks there; the prompts in text (the menus' guides such as *Sort*, the dialogue log's) show T, because while a menu has the pointer the left button is that menu's A, and T presses Y everywhere (`PC_TEXT_KEYS` in `tools/button_icons.py`). With a `bind_y` line, the text prompts take its first key that is not a mouse button (its only key when all are mouse buttons).
+- They follow the bindings of the install's `totk.ini` as the setup found them: its *Drawing the keyboard and mouse prompts* step passes the file as `--binds` (the first key of each `bind_` line), and the keyboard defaults without one. After a change on the Controls tab run the setup again: that step alone runs, since it is keyed by the `bind_` lines (`PcPrompts` in `installer/steps.py`). The Xbox prompts follow the defaults.
 - At a game resolution of another shape than 16:9 the game loads `romfs-patches-pc-<w>x<h>` in place of `romfs-patches-<w>x<h>`: the same prompts with that shape's UI layout, `make_romfs_patches.py --prompts pc --aspect <w>x<h> --reuse <install>\romfs-patches-pc --out <install>\romfs-patches-pc-<w>x<h>`. The setup writes one for each of the fifteen sizes it lays the UI out for, so on a display of one of those shapes the game resolution follows the display with these prompts too. At another size, without that folder, the Switch prompts stay (*off at this game resolution*).
 
 ## Window keys
@@ -206,6 +207,10 @@ On game 1.4.3, while one of the game's menus has its focus box (the frame the d-
 ### Clicks in dialogue
 
 On game 1.4.3, while a dialogue box is open (the layout `MessageDialog_00`: a character's lines and the game's own messages), the left mouse button presses B and the right one A, instead of the buttons they are bound to. B continues the text as A does and also shows the rest of a line that is still scrolling in; the left button's default, Y, would open the dialogue log there, and the log stays in the way until B closes it. Dialogue choices are a menu with the focus box, so the pointer above takes their clicks and a left click is A on the choice under it: clicking through a conversation fast does not pick the choice the focus starts on. A press is the dialogue's button or the binding from the moment the button goes down until it is released: the click that closes the last box does not become an attack while it is still held, and a button held when the box opens does not skip its first line. Between two lines of a conversation the game closes the box and opens it again, so both buttons stay B and A for 500 ms after the box was last open (`DIALOGUE_GAP_MS`); the first clicks after a conversation fall in that time too, as they do for a player who taps the button through the last line. `TOTK_MENU_CURSOR_LOG=1` logs how long each such gap was. The dialogue window has no focus box of its own: the scan of `eui::ScreenMgr`'s open screens (every 100 ms) finds its screen, and from then on that screen's state is read at every pad read (`dialogue_shown` in `runtime/menu_cursor.c`), so the first click after a box opens is already the dialogue's. `dialogue_click = 0` (`TOTK_DIALOGUE_CLICK=0`, live; the *Clicks in dialogue* row of the Controls tab) leaves both buttons on their bindings; the setting does not depend on `menu_cursor`. The log names the first box it sees (`menu_cursor: a dialogue box is open ...`).
+
+### Left click on the map
+
+On game 1.4.3, while the Purah Pad's map is open (found as above; the Scope is not the map), the left mouse button presses A at the map's cursor instead of the button it is bound to (Y by default). A press is A or the binding from the moment the button goes down until it is released, so a button held as the map opens or closes keeps what it pressed (`poll_merged` in `runtime/input.c`). `map_click = 0` (`TOTK_MAP_CLICK=0`, live; the *Left click on the map* row of the Controls tab) leaves the left button on its binding there. The map is found only while `menu_cursor` is on.
 
 ## Nintendo Switch 2 controllers
 
