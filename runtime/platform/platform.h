@@ -95,6 +95,11 @@ static inline void plat_pause(void) {     // spin-wait hint
 }
 
 // ---- time
+#ifdef _WIN32
+// Windows: put back the start of every export of a DLL that another module patched with a jump (Steam's overlay over
+// hid.dll, runtime/input.c start); the number restored, -1 when the DLL does not load.
+int plat_unhook_exports(const char *dll);
+#endif
 uint64_t plat_now_ns(void);               // monotonic, high resolution, arbitrary epoch
 uint64_t plat_counter(void);              // the OS's raw monotonic counter (QPC on Windows), plat_counter_hz per second
 uint64_t plat_counter_hz(void);

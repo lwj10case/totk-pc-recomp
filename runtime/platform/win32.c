@@ -2002,3 +2002,54 @@ int plat_restart_wait(uint32_t timeout_ms) {
     CloseHandle(h);
     return r;
 }
+
+// Steam's overlay (GameOverlayRenderer64.dll, in every game Steam starts) patches a jump over the start of hid.dll's
+// functions when Steam Input wraps a controller, so that the game cannot list or open the controller and sees Steam's
+// gamepad alone. unhook_export puts the first five bytes of one export back from the DLL's file: 1 restored, 0 it was
+// not patched, -1 failed.
+static int unhook_export(const char *dll, const char *fn) {
+    HMODULE m = LoadLibraryA(dll);
+    unsigned char *p = m ? (unsigned char *)GetProcAddress(m, fn) : NULL;
+    if (!p) return -1;
+    if (p[0] != 0xe9) return 0;
+    wchar_t file[MAX_PATH];
+    if (!GetModuleFileNameW(m, file, MAX_PATH)) return -1;
+    HANDLE f = CreateFileW(file, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+    if (f == INVALID_HANDLE_VALUE) return -1;
+    const IMAGE_DOS_HEADER *dos = (const IMAGE_DOS_HEADER *)m;
+    const IMAGE_NT_HEADERS *nt = (const IMAGE_NT_HEADERS *)((const char *)m + dos->e_lfanew);
+    const IMAGE_SECTION_HEADER *sec = IMAGE_FIRST_SECTION(nt);
+    DWORD rva = (DWORD)(p - (unsigned char *)m), got = 0, old;
+    unsigned char orig[5];
+    int ok = -1;
+    for (unsigned i = 0; i < nt->FileHeader.NumberOfSections; i++, sec++) {
+        if (rva < sec->VirtualAddress || rva + sizeof orig > sec->VirtualAddress + sec->SizeOfRawData) continue;
+        LARGE_INTEGER at = {.QuadPart = rva - sec->VirtualAddress + sec->PointerToRawData};
+        if (SetFilePointerEx(f, at, NULL, FILE_BEGIN) && ReadFile(f, orig, sizeof orig, &got, NULL) && got == sizeof orig &&
+            orig[0] != 0xe9 && VirtualProtect(p, sizeof orig, PAGE_EXECUTE_READWRITE, &old)) {
+            memcpy(p, orig, sizeof orig);
+            VirtualProtect(p, sizeof orig, old, &old);
+            FlushInstructionCache(GetCurrentProcess(), p, sizeof orig);
+            ok = 1;
+        }
+        break;
+    }
+    CloseHandle(f);
+    return ok;
+}
+
+// Every named export of a DLL through unhook_export; the number restored, -1 when the DLL does not load.
+int plat_unhook_exports(const char *dll) {
+    HMODULE m = LoadLibraryA(dll);
+    if (!m) return -1;
+    const char *base = (const char *)m;
+    const IMAGE_NT_HEADERS *nt = (const IMAGE_NT_HEADERS *)(base + ((const IMAGE_DOS_HEADER *)m)->e_lfanew);
+    const IMAGE_DATA_DIRECTORY *dir = &nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
+    if (!dir->VirtualAddress) return -1;
+    const IMAGE_EXPORT_DIRECTORY *ex = (const IMAGE_EXPORT_DIRECTORY *)(base + dir->VirtualAddress);
+    const DWORD *names = (const DWORD *)(base + ex->AddressOfNames);
+    int n = 0;
+    for (DWORD i = 0; i < ex->NumberOfNames; i++)
+        n += unhook_export(dll, base + names[i]) == 1;
+    return n;
+}

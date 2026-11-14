@@ -46,10 +46,11 @@ static volatile int32_t pad_layout_shown = -1;   // pad_layout for the menu (any
 static SDL_JoystickID sensor_pad;    // the gamepad whose sensors the motion thread set up, 0 none
 static int sensor_ok;                // ... and it has both sensors, enabled
 // Steam Input: Steam starts the game with SDL_GAMECONTROLLER_IGNORE_DEVICES listing the controllers it wraps, so SDL
-// shows only Steam's Xbox gamepad, which has no sensors. start() keeps that list here and clears it for SDL: the wrapped
+// shows only Steam's gamepad, which has no sensors (on Windows the overlay also patches hid.dll so that the controller
+// cannot be opened: plat_unhook_exports). start() keeps that list here and clears it for SDL: the wrapped
 // controllers are listed again, the buttons still come from Steam's gamepad (scan_pads passes over the wrapped ones)
 // and the motion thread reads the gyro and accelerometer of a wrapped one (motion_pad).
-static char steam_wrapped[1024];     // Steam's list, "0xVVVV/0xPPPP,..."; empty when the game runs without Steam Input
+static const char *steam_wrapped = "";   // Steam's list, "0xVVVV/0xPPPP,..." (dozens of entries); empty without Steam
 static SDL_Gamepad *gyro_pad;        // the wrapped controller open for its sensors alone, NULL none
 static uint64_t next_gyro_scan;
 static SDL_JoystickID gyro_none[8];  // wrapped controllers found without sensors (an Xbox pad): not opened again
@@ -427,6 +428,10 @@ static void stick(SDL_GamepadAxis ax, SDL_GamepadAxis ay, float dead, int32_t ou
     input_pad_stick(SDL_GetGamepadAxis(pad, ax), -(int32_t)SDL_GetGamepadAxis(pad, ay), dead, out);
 }
 
+static int has_sensors(SDL_Gamepad *p) {
+    return SDL_GamepadHasSensor(p, SDL_SENSOR_GYRO) && SDL_GamepadHasSensor(p, SDL_SENSOR_ACCEL);
+}
+
 // The gamepad is one Steam Input wraps (its USB ids are in steam_wrapped).
 static int pad_wrapped(SDL_JoystickID id) {
     unsigned vid = SDL_GetGamepadVendorForID(id), pid = SDL_GetGamepadProductForID(id), v, p;
@@ -447,8 +452,11 @@ static void scan_pads(void) {
     }
     int n = 0;
     SDL_JoystickID *ids = SDL_GetGamepads(&n);
-    // Steam's gamepad before a controller it wraps: the wrapped one's buttons would bypass the player's Steam layout
+    // Steam's gamepad before a controller it wraps: the wrapped one's buttons would bypass the player's Steam layout.
+    // SDL can give Steam's gamepad the name and USB ids of the controller behind it; it is then the one without sensors.
     for (int i = 0; ids && i < n && !pad; i++) if (!pad_wrapped(ids[i])) pad = SDL_OpenGamepad(ids[i]);
+    for (int i = 0; ids && i < n && !pad; i++)
+        if ((pad = SDL_OpenGamepad(ids[i])) && has_sensors(pad)) { SDL_CloseGamepad(pad); pad = NULL; }
     for (int i = 0; ids && i < n && !pad; i++) pad = SDL_OpenGamepad(ids[i]);
     SDL_free(ids);
     if (!pad) return;
@@ -544,11 +552,20 @@ static void start(void) {
     const char *e = cfg_get("TOTK_INPUT");
     if (e && !strcmp(e, "none")) { state = -1; rt_log("input: disabled (TOTK_INPUT=none)"); return; }
     const char *wrapped = SDL_getenv("SDL_GAMECONTROLLER_IGNORE_DEVICES");
-    if (wrapped && *wrapped && *wrapped != '@' && strlen(wrapped) < sizeof steam_wrapped) {
-        strcpy(steam_wrapped, wrapped);
+    char *copy = wrapped && *wrapped && *wrapped != '@' ? SDL_strdup(wrapped) : NULL;
+    if (copy) {
+        steam_wrapped = copy;
+        int entries = 1;
+        for (const char *s = copy; *s; s++) entries += *s == ',';
+        int restored = 0;
+#ifdef _WIN32
+        // Steam's overlay also keeps the wrapped controller from being listed and opened (plat_unhook_exports)
+        restored = plat_unhook_exports("hid.dll");
+#endif
         // An environment variable outranks every hint priority but SDL_HINT_OVERRIDE
         SDL_SetHintWithPriority(SDL_HINT_GAMECONTROLLER_IGNORE_DEVICES, "", SDL_HINT_OVERRIDE);
-        rt_log("input: Steam Input wraps %s: buttons from Steam's gamepad, motion from the controller itself", steam_wrapped);
+        rt_log("input: Steam hides %d kinds of controller from the game (%d hid.dll functions restored): buttons from "
+               "Steam's gamepad, motion from the controller behind it", entries, restored);
     }
     if (!SDL_Init(SDL_INIT_GAMEPAD)) { state = -1; rt_log("input: SDL gamepad init failed (%s), keyboard only", SDL_GetError()); }
     else state = 1;
@@ -982,15 +999,11 @@ void input_motion_axes(const float a[3], const float g[3], double acc[3], double
     gyro[2] = g[1];
 }
 
-static int has_sensors(SDL_Gamepad *p) {
-    return SDL_GamepadHasSensor(p, SDL_SENSOR_GYRO) && SDL_GamepadHasSensor(p, SDL_SENSOR_ACCEL);
-}
-
 // Under lock, with a gamepad open: the gamepad the sensors are read from. That is the open one, except under Steam
 // Input when it is Steam's gamepad without sensors: then the first wrapped controller that has both, opened for them
 // alone and looked for again every RESCAN_MS while there is none (it can connect after Steam's gamepad).
 static SDL_Gamepad *motion_pad(void) {
-    if (!steam_wrapped[0] || has_sensors(pad) || pad_wrapped(SDL_GetGamepadID(pad))) return pad;
+    if (!steam_wrapped[0] || has_sensors(pad)) return pad;
     if (gyro_pad && SDL_GamepadConnected(gyro_pad)) return gyro_pad;
     if (gyro_pad) { SDL_CloseGamepad(gyro_pad); gyro_pad = NULL; }
     uint64_t ms = plat_now_ns() / 1000000u;
@@ -1001,7 +1014,7 @@ static SDL_Gamepad *motion_pad(void) {
     for (int i = 0; ids && i < n && !gyro_pad; i++) {
         int known = 0;
         for (unsigned k = 0; k < 8; k++) known |= gyro_none[k] == ids[i];
-        if (known || !pad_wrapped(ids[i]) || !(gyro_pad = SDL_OpenGamepad(ids[i]))) continue;
+        if (known || ids[i] == SDL_GetGamepadID(pad) || !pad_wrapped(ids[i]) || !(gyro_pad = SDL_OpenGamepad(ids[i]))) continue;
         if (!has_sensors(gyro_pad)) {
             SDL_CloseGamepad(gyro_pad); gyro_pad = NULL;
             gyro_none[gyro_none_n++ % 8] = ids[i];   // a reconnected controller gets a new id
