@@ -231,6 +231,10 @@ Windows does not present the Switch 2 Pro Controller as a gamepad SDL can open (
 
 Bridges that output a ViGEm DualShock 4 (ProCon2Windows, connectyourpro as tested) give buttons and rumble but no motion: their virtual DualShock 4 reports a gyro and an accelerometer that never change, so motion aiming and Ultrahand rotation do nothing. Run one bridge at a time; Steam Input can also claim the controller, so close Steam if the bridge does not find it.
 
+## Steam Input
+
+When the game is started from Steam with Steam Input on for the controller, Steam shows the game an Xbox gamepad in place of the controller and passes it the list of the controllers it wraps (`SDL_GAMECONTROLLER_IGNORE_DEVICES`), so that SDL skips them. Steam's gamepad has no gyro and no accelerometer. The game takes the buttons, sticks and rumble from Steam's gamepad, so the player's Steam layout applies, and reads the motion sensors from the wrapped controller itself (`runtime/input.c`, `motion_pad`): a Switch Pro Controller, DualShock 4 or DualSense aims by motion with Steam Input on as it does with it off. The log names both (`input: Steam Input wraps ...`, `input: motion from "..."`). Steam's gamepad is an Xbox one, so `pad_layout = auto` picks `xbox` there; `pad_layout = nintendo` restores the Switch positions when Steam's layout does not swap them already. A gyro bound to the mouse or a stick in the Steam layout acts on top of the game's own motion aiming; leave the layout's gyro off.
+
 ## Scripted input
 
 `TOTK_INPUT_SCRIPT=<file>` replays presses. It is ORed with real input and still applies under `TOTK_INPUT=none`. One event per line, `#` starts a comment:
